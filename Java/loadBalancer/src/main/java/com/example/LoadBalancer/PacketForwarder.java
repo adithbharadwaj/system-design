@@ -1,17 +1,17 @@
 package com.example.LoadBalancer;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import org.apache.catalina.Executor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import com.example.LoadBalancer.Algorithms.BalancingAlgorithm;
+import com.example.LoadBalancer.Workers.WorkerThread;
 
 @Component
 public class PacketForwarder{
@@ -40,13 +40,8 @@ public class PacketForwarder{
                 Socket serverSocket = new Socket(host, port);
                 System.out.println("Server connected: " + serverSocket.getInetAddress() + " Port: " + serverSocket.getPort());
 
-                Thread clientThread = new Thread(() -> {
-                    handleForwarding(clientSocket, serverSocket);
-                });
-
-                Thread serverThread = new Thread(() -> {
-                    handleForwarding(serverSocket, clientSocket);
-                });
+                Thread clientThread = new Thread(new WorkerThread(clientSocket, serverSocket));
+                Thread serverThread = new Thread(new WorkerThread(serverSocket, clientSocket));
 
                 clientThread.start();
                 serverThread.start();
@@ -55,23 +50,6 @@ public class PacketForwarder{
             e.printStackTrace();
         } finally{
             socket.close();
-        }
-    }
-
-    public void handleForwarding(Socket from, Socket to){
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-        try{
-            InputStream in = from.getInputStream();
-            OutputStream out = to.getOutputStream();
-
-            while((bytesRead = in.read(buffer)) != -1){
-                out.write(buffer, 0, bytesRead);
-                out.flush();
-            }
-            
-        } catch(IOException e){
-            e.printStackTrace();
         }
     }
 }
